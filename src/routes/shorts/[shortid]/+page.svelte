@@ -13,14 +13,12 @@
 	import { token } from "@davidnet-net/svelte-ui/tokens";
 	import { goto } from "$app/navigation";
 
-	// De "bron" lijst met originele data. We halen sparks en copied hier weg,
-	// want die horen bij een specifieke weergave in de feed.
 	let sourceShorts = $state([
 		{
 			id: 1,
 			title: "Eerste Short",
 			videoUrl: "/test_videos/video1.mp4",
-			creator: "Test",
+			creator: "Davidnet",
 			liked: false,
 			views: 1420,
 			likesCount: 112,
@@ -31,7 +29,7 @@
 			id: 2,
 			title: "Tweede Short",
 			videoUrl: "/test_videos/video2.mp4",
-			creator: "Test",
+			creator: "Davidnet",
 			liked: false,
 			views: 890,
 			likesCount: 64,
@@ -42,7 +40,7 @@
 			id: 3,
 			title: "Derde Short",
 			videoUrl: "/test_videos/video3.mp4",
-			creator: "Test",
+			creator: "Davidnet",
 			liked: false,
 			views: 2310,
 			likesCount: 310,
@@ -53,7 +51,7 @@
 			id: 4,
 			title: "Vierde Short",
 			videoUrl: "/test_videos/video4.mp4",
-			creator: "Test",
+			creator: "Davidnet",
 			liked: false,
 			views: 540,
 			likesCount: 22,
@@ -64,7 +62,7 @@
 			id: 5,
 			title: "Vijfde Short",
 			videoUrl: "/test_videos/video5.mp4",
-			creator: "Test",
+			creator: "Davidnet",
 			liked: false,
 			views: 1100,
 			likesCount: 95,
@@ -75,7 +73,7 @@
 			id: 6,
 			title: "Zesde Short",
 			videoUrl: "/test_videos/video6.mp4",
-			creator: "Test",
+			creator: "Davidnet",
 			liked: false,
 			views: 340,
 			likesCount: 18,
@@ -86,7 +84,7 @@
 			id: 7,
 			title: "Zevende Short",
 			videoUrl: "/test_videos/video7.mp4",
-			creator: "Test",
+			creator: "Davidnet",
 			liked: false,
 			views: 4200,
 			likesCount: 512,
@@ -97,7 +95,7 @@
 			id: 8,
 			title: "8de Short",
 			videoUrl: "/test_videos/video8.mp4",
-			creator: "Test",
+			creator: "Davidnet",
 			liked: false,
 			views: 780,
 			likesCount: 45,
@@ -108,7 +106,7 @@
 			id: 9,
 			title: "Bimbambini sixseveni",
 			videoUrl: "/test_videos/video9.mp4",
-			creator: "Test",
+			creator: "Davidnet",
 			liked: false,
 			views: 6700,
 			likesCount: 890,
@@ -117,24 +115,16 @@
 		}
 	]);
 
-	// De uiteindelijke dynamische scroll-feed
 	let feed = $state([]);
-
-	// We gebruiken nu een unieke 'feedId' om te weten welke video in beeld is
-	// (omdat dezelfde video na het shufflen opnieuw voor kan komen)
 	let activeFeedId = $state(null);
 	let activeDropdownId = $state(null);
 	let activePanel = $state({ feedId: null, type: null });
 	let isFullscreen = $state(false);
-	let videoElements = {};
 	let containerElement;
 
-	// Functie om een nieuwe gerandomiseerde batch video's aan te maken
 	function createBatch(firstId = null) {
-		// Schud de bronlijst willekeurig door elkaar
 		let shuffled = [...sourceShorts].sort(() => Math.random() - 0.5);
 
-		// Als er een URL ID is meegegeven, dwingen we die naar de éérste positie
 		if (firstId) {
 			const targetIndex = shuffled.findIndex((s) => s.id === firstId);
 			if (targetIndex > -1) {
@@ -143,7 +133,6 @@
 			}
 		}
 
-		// Geef elke weergave een uniek ID voor de rendering + lokale states (sparks)
 		return shuffled.map((s) => ({
 			...s,
 			feedId: Math.random().toString(36).substring(2, 11),
@@ -153,9 +142,19 @@
 	}
 
 	onMount(() => {
-		// Initialiseer de eerste set video's op basis van de URL
 		const initialId = Number(page.params.shortid);
 		feed = createBatch(initialId);
+
+		if (feed.length > 0) {
+			activeFeedId = feed[0].feedId;
+		}
+
+		if (initialId && containerElement) {
+			const targetItem = containerElement.querySelector(`[data-feed-id="${activeFeedId}"]`);
+			if (targetItem) {
+				containerElement.scrollTop = targetItem.offsetTop;
+			}
+		}
 
 		const handleFsChange = () => {
 			isFullscreen = !!document.fullscreenElement;
@@ -171,38 +170,28 @@
 		return score.toFixed(1);
 	}
 
-	// Controleer afspelen/pauzeren op basis van activeFeedId
-	$effect(() => {
-		Object.entries(videoElements).forEach(([feedId, video]) => {
-			if (!video) return;
-			if (feedId === activeFeedId) {
-				video.play().catch(() => {});
-			} else {
-				video.pause();
-			}
-		});
-	});
-
 	function watchVisibility(node, { id, feedId }) {
 		const observer = new IntersectionObserver(
 			(entries) => {
 				entries.forEach((entry) => {
+					const video = node.querySelector("video");
+
 					if (entry.isIntersecting) {
 						activeFeedId = feedId;
 						activeDropdownId = null;
 
-						// Update passief de browser URL naar het originele video ID
 						if (window.location.pathname !== `/shorts/${id}`) {
 							window.history.replaceState({}, "", `/shorts/${id}`);
 						}
 
-						// === INFINITE SCROLL LOGIC ===
-						// Zoek op welke index we ons nu bevinden
+						video?.play().catch(() => {});
+
 						const currentIndex = feed.findIndex((s) => s.feedId === feedId);
-						// Als we nog maar 3 video's van het einde af zijn, genereer de volgende batch!
 						if (currentIndex >= feed.length - 3) {
 							feed = [...feed, ...createBatch()];
 						}
+					} else {
+						video?.pause();
 					}
 				});
 			},
@@ -222,16 +211,13 @@
 	}
 
 	function toggleLike(feedShort) {
-		// Zoek de globale video en update de like status zodat deze bewaard blijft in volgende loops
 		const sourceShort = sourceShorts.find((s) => s.id === feedShort.id);
 		if (sourceShort) sourceShort.liked = !sourceShort.liked;
 
-		// Synchroniseer de like status over alle huidige weergaven van deze video in de feed
 		feed.forEach((item) => {
 			if (item.id === feedShort.id) item.liked = sourceShort.liked;
 		});
 
-		// Voer de spark-animatie alleen uit op het element waarop gedrukt is
 		if (sourceShort && sourceShort.liked) {
 			const newSparks = [];
 			for (let i = 0; i < 24; i++) {
@@ -265,12 +251,11 @@
 		}
 	}
 
-	function toggleFullscreen(feedId) {
-		const targetItem = containerElement?.querySelector(`[data-feed-id="${feedId}"]`);
-		if (!targetItem) return;
+	function toggleFullscreen() {
+		if (!containerElement) return;
 
 		if (!document.fullscreenElement) {
-			targetItem.requestFullscreen?.().catch((err) => console.error(err));
+			containerElement.requestFullscreen?.().catch((err) => console.error(err));
 		} else {
 			document.exitFullscreen?.().catch((err) => console.error(err));
 		}
@@ -297,7 +282,6 @@
 	{/if}
 
 	<div class="shorts-container" bind:this={containerElement}>
-		<!-- Let op: We renderen nu 'feed' met unieke feedId's -->
 		{#each feed as short (short.feedId)}
 			<div
 				class="short-item"
@@ -305,7 +289,6 @@
 				style:opacity={activeFeedId === short.feedId ? "1" : "0.4"}
 				use:watchVisibility={{ id: short.id, feedId: short.feedId }}>
 				<video
-					bind:this={videoElements[short.feedId]}
 					src={short.videoUrl}
 					loop
 					muted
@@ -314,7 +297,6 @@
 					onclick={(e) => (e.target.paused ? e.target.play() : e.target.pause())}>
 				</video>
 
-				<!-- Menu Dropdown per unieke feedId -->
 				<div class="top-menu-wrapper">
 					<Dropdown isOpen={activeDropdownId === short.feedId} placement="bottom-end">
 						{#snippet trigger()}
@@ -336,7 +318,7 @@
 							onclick={() => togglePanel(short.feedId, "info")}>
 							Information
 						</Button>
-						<Button iconbefore="flag" appearance="subtle" alignContent="left" stretchwidth>
+						<Button iconbefore="flag" appearance="subtle" alignContent="left" stretchwidth disabled>
 							Report
 						</Button>
 						<Button
@@ -344,7 +326,7 @@
 							appearance="subtle"
 							alignContent="left"
 							stretchwidth
-							onclick={() => toggleFullscreen(short.feedId)}>
+							onclick={toggleFullscreen}>
 							{isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
 						</Button>
 					</Dropdown>
@@ -360,13 +342,11 @@
 					{/if}
 				</div>
 
-				<!-- Overlay text -->
 				<div class="overlay">
 					<h3>@{short.creator}</h3>
 					<p>{short.title} (ID: {short.id})</p>
 				</div>
 
-				<!-- Action buttons -->
 				<div class="action-buttons">
 					<div class="btn-wrapper">
 						<button class="action-btn" aria-label="Like" onclick={() => toggleLike(short)}>
@@ -402,7 +382,6 @@
 					</button>
 				</div>
 
-				<!-- Side Panel -->
 				{#if activePanel.feedId === short.feedId && activePanel.type}
 					<div class="side-panel">
 						<div class="panel-header">
@@ -490,6 +469,11 @@
 		background-color: #000;
 		height: 100dvh;
 		width: 100vw;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		overflow-y: scroll;
+		scroll-snap-type: y mandatory;
 	}
 
 	.shorts-container::backdrop {
