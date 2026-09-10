@@ -122,6 +122,9 @@
 	let isFullscreen = $state(false);
 	let containerElement;
 
+	// Bereken automatisch welke index de actieve video heeft
+	let activeIndex = $derived(feed.findIndex((s) => s.feedId === activeFeedId));
+
 	function createBatch(firstId = null) {
 		let shuffled = [...sourceShorts].sort(() => Math.random() - 0.5);
 
@@ -143,7 +146,7 @@
 
 	onMount(() => {
 		const initialId = Number(page.params.shortid);
-		// Laad direct meerdere batches achter elkaar zodat de buffer meteen gevuld is met ~18 items
+		// Start direct met een mooie buffer van 2 batches
 		feed = [...createBatch(initialId), ...createBatch()];
 
 		if (feed.length > 0) {
@@ -188,9 +191,9 @@
 						video?.play().catch(() => {});
 
 						const currentIndex = feed.findIndex((s) => s.feedId === feedId);
-						// Al bij 10 items van tevoren nieuwe batches inladen en klaarzetten
-						if (currentIndex >= feed.length - 10) {
-							feed = [...feed, ...createBatch(), ...createBatch()];
+						// Laad nieuwe batch in zodra je binnen 5 video's van het einde bent
+						if (currentIndex >= feed.length - 5) {
+							feed = [...feed, ...createBatch()];
 						}
 					} else {
 						video?.pause();
@@ -259,7 +262,7 @@
 		if (!document.fullscreenElement) {
 			containerElement.requestFullscreen?.().catch((err) => console.error(err));
 		} else {
-			document.exitFullscreen?.().catch((err) => console.error(err));
+			document.exitFullscreen?.().catch((err) => console.exitFullscreen?.());
 		}
 		activeDropdownId = null;
 	}
@@ -284,19 +287,20 @@
 	{/if}
 
 	<div class="shorts-container" bind:this={containerElement}>
-		{#each feed as short (short.feedId)}
+		{#each feed as short, index (short.feedId)}
 			<div
 				class="short-item"
 				data-feed-id={short.feedId}
 				style:opacity={activeFeedId === short.feedId ? "1" : "0.4"}
 				use:watchVisibility={{ id: short.id, feedId: short.feedId }}>
+				<!-- Slimme preloader: Alleen de actieve en de komende 3 video's krijgen "auto", de rest "metadata" -->
 				<video
 					src={short.videoUrl}
 					loop
 					muted
 					playsinline
-					preload="auto"
-					onloadedmetadata={(e) => {
+					preload={Math.abs(index - activeIndex) <= 3 ? "auto" : "metadata"}
+					oncanplay={(e) => {
 						e.target.currentTime = 0.1;
 					}}
 					onclick={(e) => (e.target.paused ? e.target.play() : e.target.pause())}>
