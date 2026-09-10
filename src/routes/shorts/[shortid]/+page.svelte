@@ -288,12 +288,13 @@
 				data-feed-id={short.feedId}
 				style:opacity={activeFeedId === short.feedId ? "1" : "0.4"}
 				use:watchVisibility={{ id: short.id, feedId: short.feedId }}>
+				<!-- preload="auto" zorgt ervoor dat de browser direct de video laadt en het eerste frame toont -->
 				<video
 					src={short.videoUrl}
 					loop
 					muted
 					playsinline
-					preload="metadata"
+					preload="auto"
 					onclick={(e) => (e.target.paused ? e.target.play() : e.target.pause())}>
 				</video>
 
@@ -318,7 +319,7 @@
 							onclick={() => togglePanel(short.feedId, "info")}>
 							Information
 						</Button>
-						<Button iconbefore="flag" appearance="subtle" alignContent="left" stretchwidth disabled>
+						<Button iconbefore="flag" appearance="subtle" alignContent="left" stretchwidth>
 							Report
 						</Button>
 						<Button
