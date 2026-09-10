@@ -1,8 +1,17 @@
 <script>
 	import { page } from "$app/state";
 	import { onMount } from "svelte";
-	import { Button, Dropdown, Flex, Icon, LinkButton, toast } from "@davidnet-net/svelte-ui";
+	import {
+		appState,
+		Button,
+		Dropdown,
+		Flex,
+		Icon,
+		LinkButton,
+		toast
+	} from "@davidnet-net/svelte-ui";
 	import { token } from "@davidnet-net/svelte-ui/tokens";
+	import { goto } from "$app/navigation";
 
 	let shorts = $state([
 		{
@@ -252,11 +261,13 @@
 </script>
 
 <div class="shorts-page">
-	<div class="upload-bar">
-		<Flex height="fit-content" justifyContent="end">
-			<LinkButton href="/shorts/manage">Manage your videos</LinkButton>
-		</Flex>
-	</div>
+	{#if !appState.isMobile}
+		<div class="upload-bar">
+			<Flex height="fit-content" justifyContent="end">
+				<LinkButton href="/shorts/manage">Manage your videos</LinkButton>
+			</Flex>
+		</div>
+	{/if}
 
 	<div class="shorts-container" bind:this={containerElement}>
 		{#each shorts as short (short.id)}
@@ -277,7 +288,7 @@
 
 				<!-- Menu Dropdown -->
 				<div class="top-menu-wrapper">
-					<Dropdown isOpen={activeDropdownId === short.id}>
+					<Dropdown isOpen={activeDropdownId === short.id} placement="bottom-end">
 						{#snippet trigger()}
 							<button
 								class="top-menu-btn"
@@ -309,6 +320,16 @@
 							{isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
 						</Button>
 					</Dropdown>
+					{#if appState.isMobile}
+						<button
+							class="top-menu-btn"
+							aria-label="Menu"
+							onclick={() => {
+								goto("/shorts/manage");
+							}}>
+							<Icon icon="video_template" />
+						</button>
+					{/if}
 				</div>
 
 				<!-- Overlay text -->
@@ -475,6 +496,10 @@
 		top: 16px;
 		right: 16px;
 		z-index: 20;
+		display: flex;
+		width: fit-content;
+		gap: 0.5rem;
+		flex-direction: column;
 	}
 
 	.top-menu-btn {
