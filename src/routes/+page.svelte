@@ -27,7 +27,7 @@
 				description=""
 				icon="emoji_people"
 				href={PUBLIC_ACCOUNT_FRONTEND_URL + "/profile/connections"} />
-			<HorizontalCard title="Shorts" description="" icon="video_template" href="/shorts" />
+			<HorizontalCard title="Shorts" description="" icon="video_template" href="/shorts/1" />
 		</Flex>
 	</Flex>
 </Flex>
