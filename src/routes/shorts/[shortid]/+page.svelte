@@ -165,7 +165,7 @@
 		return () => document.removeEventListener("fullscreenchange", handleFsChange);
 	});
 
-	// Bestuurt het afspelen puur op basis van actieve scroll-ID zonder handmatige acties te overschrijven
+	// Beheert het pauzeren van niet-actieve video's en ondersteunt fallback play
 	$effect(() => {
 		if (!containerElement || !activeFeedId) return;
 
@@ -297,16 +297,19 @@
 
 	<div class="shorts-container" bind:this={containerElement}>
 		{#each feed as short, index (short.feedId)}
+			{@const isActive = short.feedId === activeFeedId}
 			<div
 				class="short-item"
 				data-feed-id={short.feedId}
-				style:opacity={activeFeedId === short.feedId ? "1" : "0.4"}
+				style:opacity={isActive ? "1" : "0.4"}
 				use:watchVisibility={{ id: short.id, feedId: short.feedId }}>
+				<!-- autoplay en preload="auto" voor nabije/actieve items dwingen Firefox Mobile om te laden en af te spelen -->
 				<video
 					src={short.videoUrl}
 					loop
 					muted
 					playsinline
+					autoplay={isActive}
 					preload={Math.abs(index - activeIndex) <= 2 ? "auto" : "metadata"}
 					onloadeddata={(e) => {
 						if (e.target.currentTime === 0) e.target.currentTime = 0.1;
