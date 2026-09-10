@@ -18,7 +18,7 @@
 			id: 1,
 			title: "Eerste Short",
 			videoUrl: "/test_videos/video1.mp4",
-			creator: "Davidnet",
+			creator: "Test",
 			liked: false,
 			views: 1420,
 			likesCount: 112,
@@ -29,7 +29,7 @@
 			id: 2,
 			title: "Tweede Short",
 			videoUrl: "/test_videos/video2.mp4",
-			creator: "Davidnet",
+			creator: "Test",
 			liked: false,
 			views: 890,
 			likesCount: 64,
@@ -40,7 +40,7 @@
 			id: 3,
 			title: "Derde Short",
 			videoUrl: "/test_videos/video3.mp4",
-			creator: "Davidnet",
+			creator: "Test",
 			liked: false,
 			views: 2310,
 			likesCount: 310,
@@ -51,7 +51,7 @@
 			id: 4,
 			title: "Vierde Short",
 			videoUrl: "/test_videos/video4.mp4",
-			creator: "Davidnet",
+			creator: "Test",
 			liked: false,
 			views: 540,
 			likesCount: 22,
@@ -62,7 +62,7 @@
 			id: 5,
 			title: "Vijfde Short",
 			videoUrl: "/test_videos/video5.mp4",
-			creator: "Davidnet",
+			creator: "Test",
 			liked: false,
 			views: 1100,
 			likesCount: 95,
@@ -73,7 +73,7 @@
 			id: 6,
 			title: "Zesde Short",
 			videoUrl: "/test_videos/video6.mp4",
-			creator: "Davidnet",
+			creator: "Test",
 			liked: false,
 			views: 340,
 			likesCount: 18,
@@ -84,7 +84,7 @@
 			id: 7,
 			title: "Zevende Short",
 			videoUrl: "/test_videos/video7.mp4",
-			creator: "Davidnet",
+			creator: "Test",
 			liked: false,
 			views: 4200,
 			likesCount: 512,
@@ -95,7 +95,7 @@
 			id: 8,
 			title: "8de Short",
 			videoUrl: "/test_videos/video8.mp4",
-			creator: "Davidnet",
+			creator: "Test",
 			liked: false,
 			views: 780,
 			likesCount: 45,
@@ -106,7 +106,7 @@
 			id: 9,
 			title: "Bimbambini sixseveni",
 			videoUrl: "/test_videos/video9.mp4",
-			creator: "Davidnet",
+			creator: "Test",
 			liked: false,
 			views: 6700,
 			likesCount: 890,
@@ -197,7 +197,8 @@
 			},
 			{
 				root: containerElement,
-				threshold: 0.6
+				// Verlaag de threshold iets zodat mobiel alvast triggert net voordat hij in beeld is
+				threshold: 0.4
 			}
 		);
 
@@ -288,7 +289,7 @@
 				data-feed-id={short.feedId}
 				style:opacity={activeFeedId === short.feedId ? "1" : "0.4"}
 				use:watchVisibility={{ id: short.id, feedId: short.feedId }}>
-				<!-- preload="auto" zorgt ervoor dat de browser direct de video laadt en het eerste frame toont -->
+				<!-- preload="auto" + unieke loading optimalisaties voor mobiel -->
 				<video
 					src={short.videoUrl}
 					loop
@@ -447,6 +448,7 @@
 		position: relative;
 		width: 100%;
 		height: calc(100dvh - 56px);
+		background-color: #000; /* Zwarte achtergrond voorkomt flitsen van wit tijdens laden */
 	}
 
 	.upload-bar {
@@ -464,6 +466,7 @@
 		display: flex;
 		flex-direction: column;
 		align-items: center;
+		-webkit-overflow-scrolling: touch; /* Vloeiender scrollen op iOS */
 	}
 
 	.shorts-container:fullscreen {
@@ -494,6 +497,7 @@
 		border-radius: 12px;
 		overflow: hidden;
 		transition: opacity 0.3s ease;
+		background-color: #111; /* Subtiele donkere placeholder i.p.v. wit of leeg */
 	}
 
 	video {
