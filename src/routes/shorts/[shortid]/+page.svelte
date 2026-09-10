@@ -143,7 +143,8 @@
 
 	onMount(() => {
 		const initialId = Number(page.params.shortid);
-		feed = createBatch(initialId);
+		// Laad direct meerdere batches achter elkaar zodat de buffer meteen gevuld is met ~18 items
+		feed = [...createBatch(initialId), ...createBatch()];
 
 		if (feed.length > 0) {
 			activeFeedId = feed[0].feedId;
@@ -187,8 +188,9 @@
 						video?.play().catch(() => {});
 
 						const currentIndex = feed.findIndex((s) => s.feedId === feedId);
-						if (currentIndex >= feed.length - 3) {
-							feed = [...feed, ...createBatch()];
+						// Al bij 10 items van tevoren nieuwe batches inladen en klaarzetten
+						if (currentIndex >= feed.length - 10) {
+							feed = [...feed, ...createBatch(), ...createBatch()];
 						}
 					} else {
 						video?.pause();
@@ -288,7 +290,6 @@
 				data-feed-id={short.feedId}
 				style:opacity={activeFeedId === short.feedId ? "1" : "0.4"}
 				use:watchVisibility={{ id: short.id, feedId: short.feedId }}>
-				<!-- onloadedmetadata forceert direct het tonen van het eerste frame -->
 				<video
 					src={short.videoUrl}
 					loop
@@ -450,7 +451,6 @@
 		position: relative;
 		width: 100%;
 		height: calc(100dvh - 56px);
-		background-color: #000;
 	}
 
 	.upload-bar {
@@ -499,7 +499,6 @@
 		border-radius: 12px;
 		overflow: hidden;
 		transition: opacity 0.3s ease;
-		background-color: #000;
 	}
 
 	video {
