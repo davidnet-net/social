@@ -26,9 +26,6 @@
 	let containerElement: HTMLDivElement | undefined;
 	let isLoading = $state(true);
 
-	// YouTube Shorts style autoplay fallback state
-	let isGlobalMuted = $state(false);
-
 	let activeIndex = $derived(feed.findIndex((s) => s.feedId === activeFeedId));
 
 	async function loadShortsBatch(targetId: string | null = null) {
@@ -98,7 +95,7 @@
 		return () => document.removeEventListener("fullscreenchange", handleFsChange);
 	});
 
-	// Manages pausing inactive videos and supports fallback play (The YouTube Shorts trick)
+	// Manages pausing inactive videos
 	$effect(() => {
 		if (!containerElement || !activeFeedId) return;
 
@@ -109,21 +106,7 @@
 			if (!video) return;
 
 			if (feedId === activeFeedId) {
-				// Update mute status based on global state
-				video.muted = isGlobalMuted;
-
-				// Probeer af te spelen
-				const playPromise = video.play();
-				if (playPromise !== undefined) {
-					playPromise.catch((err) => {
-						// Als de browser autoplay blokkeert vanwege geluid
-						if (err.name === "NotAllowedError") {
-							isGlobalMuted = true; // Mute globaal aanzetten
-							video.muted = true; // Deze video muten
-							video.play().catch(() => {}); // Nu nogmaals (gedempt) afspelen
-						}
-					});
-				}
+				video.play().catch(() => {});
 			} else {
 				video.pause();
 			}
@@ -258,35 +241,19 @@
 				<video
 					src={isNear ? short.videoUrl : ""}
 					loop
-					muted={isGlobalMuted}
+					muted={false}
 					playsinline
 					preload={Math.abs(index - activeIndex) <= 1 ? "auto" : "metadata"}
 					onloadeddata={(e) => {
 						const target = e.target as HTMLVideoElement;
 						if (target.currentTime === 0) target.currentTime = 0.1;
 						if (isActive) {
-							const playPromise = target.play();
-							if (playPromise !== undefined) {
-								playPromise.catch((err) => {
-									if (err.name === "NotAllowedError") {
-										isGlobalMuted = true;
-										target.muted = true;
-										target.play().catch(() => {});
-									}
-								});
-							}
+							target.play().catch(() => {});
 						}
 					}}
 					onclick={(e) => {
 						const target = e.target as HTMLVideoElement;
-						// YouTube logica: Als hij auto-muted was, unmute hem bij de eerste klik.
-						// Als het geluid al aan stond, pauzeer of speel af.
-						if (isGlobalMuted) {
-							isGlobalMuted = false;
-							target.muted = false;
-						} else {
-							target.paused ? target.play() : target.pause();
-						}
+						target.paused ? target.play() : target.pause();
 					}}>
 				</video>
 
