@@ -1,162 +1,92 @@
-<script>
+<script lang="ts">
 	import { page } from "$app/state";
 	import { onMount } from "svelte";
+	import { PUBLIC_BACKEND_URL } from "$env/static/public";
 	import {
 		appState,
+		authState,
 		Button,
 		Dropdown,
 		Flex,
+		getFetch,
 		Icon,
 		LinkButton,
-		toast
+		toast,
+		whenAuthReady
 	} from "@davidnet-net/svelte-ui";
 	import { token } from "@davidnet-net/svelte-ui/tokens";
 	import { goto } from "$app/navigation";
 
-	let sourceShorts = $state([
-		{
-			id: 1,
-			title: "Eerste Short",
-			videoUrl: "/test_videos/video1.mp4",
-			creator: "Davidnet",
-			liked: false,
-			views: 1420,
-			likesCount: 112,
-			watchDuration: 18,
-			videoLength: 20
-		},
-		{
-			id: 2,
-			title: "Tweede Short",
-			videoUrl: "/test_videos/video2.mp4",
-			creator: "Davidnet",
-			liked: false,
-			views: 890,
-			likesCount: 64,
-			watchDuration: 12,
-			videoLength: 15
-		},
-		{
-			id: 3,
-			title: "Derde Short",
-			videoUrl: "/test_videos/video3.mp4",
-			creator: "Davidnet",
-			liked: false,
-			views: 2310,
-			likesCount: 310,
-			watchDuration: 28,
-			videoLength: 30
-		},
-		{
-			id: 4,
-			title: "Vierde Short",
-			videoUrl: "/test_videos/video4.mp4",
-			creator: "Davidnet",
-			liked: false,
-			views: 540,
-			likesCount: 22,
-			watchDuration: 8,
-			videoLength: 10
-		},
-		{
-			id: 5,
-			title: "Vijfde Short",
-			videoUrl: "/test_videos/video5.mp4",
-			creator: "Davidnet",
-			liked: false,
-			views: 1100,
-			likesCount: 95,
-			watchDuration: 22,
-			videoLength: 25
-		},
-		{
-			id: 6,
-			title: "Zesde Short",
-			videoUrl: "/test_videos/video6.mp4",
-			creator: "Davidnet",
-			liked: false,
-			views: 340,
-			likesCount: 18,
-			watchDuration: 5,
-			videoLength: 12
-		},
-		{
-			id: 7,
-			title: "Zevende Short",
-			videoUrl: "/test_videos/video7.mp4",
-			creator: "Davidnet",
-			liked: false,
-			views: 4200,
-			likesCount: 512,
-			watchDuration: 45,
-			videoLength: 45
-		},
-		{
-			id: 8,
-			title: "8de Short",
-			videoUrl: "/test_videos/video8.mp4",
-			creator: "Davidnet",
-			liked: false,
-			views: 780,
-			likesCount: 45,
-			watchDuration: 10,
-			videoLength: 14
-		},
-		{
-			id: 9,
-			title: "Bimbambini sixseveni",
-			videoUrl: "/test_videos/video9.mp4",
-			creator: "Davidnet",
-			liked: false,
-			views: 6700,
-			likesCount: 890,
-			watchDuration: 58,
-			videoLength: 60
-		}
-	]);
-
-	let feed = $state([]);
-	let activeFeedId = $state(null);
-	let activeDropdownId = $state(null);
-	let activePanel = $state({ feedId: null, type: null });
+	// Replaced generic object with loose any/Record type for dynamic backend data
+	let feed = $state<any[]>([]);
+	let activeFeedId = $state<string | null>(null);
+	let activeDropdownId = $state<string | null>(null);
+	let activePanel = $state({ feedId: null as string | null, type: null as string | null });
 	let isFullscreen = $state(false);
-	let containerElement;
+	let containerElement: HTMLDivElement | undefined;
+	let isLoading = $state(true);
 
 	let activeIndex = $derived(feed.findIndex((s) => s.feedId === activeFeedId));
 
-	function createBatch(firstId = null) {
-		let shuffled = [...sourceShorts].sort(() => Math.random() - 0.5);
+	async function loadShortsBatch(targetId: string | null = null) {
+		try {
+			const res = await getFetch(
+				`${PUBLIC_BACKEND_URL}/social/shorts?limit=15`,
+				{},
+				undefined,
+				true
+			);
 
-		if (firstId) {
-			const targetIndex = shuffled.findIndex((s) => s.id === firstId);
-			if (targetIndex > -1) {
-				const [target] = shuffled.splice(targetIndex, 1);
-				shuffled.unshift(target);
+			if (res.success && res.shorts) {
+				let fetchedShorts = res.shorts.map((s: any) => ({
+					...s,
+					// Assign a unique local ID for the feed loop rendering
+					feedId: Math.random().toString(36).substring(2, 11),
+					sparks: [],
+					copied: false,
+					liked: false // Local state mock
+				}));
+
+				// If a specific ID was loaded from the URL, move it to the front of the array
+				if (targetId) {
+					const targetIndex = fetchedShorts.findIndex((s: any) => s.id === targetId);
+					if (targetIndex > -1) {
+						const [target] = fetchedShorts.splice(targetIndex, 1);
+						fetchedShorts.unshift(target);
+					}
+				}
+
+				feed = [...feed, ...fetchedShorts];
+
+				if (feed.length > 0 && !activeFeedId) {
+					activeFeedId = feed[0].feedId;
+				}
 			}
+		} catch (err) {
+			console.error("Failed to load feed:", err);
 		}
-
-		return shuffled.map((s) => ({
-			...s,
-			feedId: Math.random().toString(36).substring(2, 11),
-			sparks: [],
-			copied: false
-		}));
 	}
 
 	onMount(() => {
-		const initialId = Number(page.params.shortid);
-		feed = [...createBatch(initialId), ...createBatch()];
+		const initialId = page.params.shortid || null;
 
-		if (feed.length > 0) {
-			activeFeedId = feed[0].feedId;
-		}
+		(async () => {
+			await whenAuthReady();
+			await loadShortsBatch(initialId);
+			isLoading = false;
 
-		if (initialId && containerElement) {
-			const targetItem = containerElement.querySelector(`[data-feed-id="${activeFeedId}"]`);
-			if (targetItem) {
-				containerElement.scrollTop = targetItem.offsetTop;
+			// Scroll to the active item slightly after DOM paints
+			if (initialId && containerElement && activeFeedId) {
+				setTimeout(() => {
+					const targetItem = containerElement?.querySelector(
+						`[data-feed-id="${activeFeedId}"]`
+					) as HTMLElement;
+					if (targetItem) {
+						containerElement!.scrollTop = targetItem.offsetTop;
+					}
+				}, 100);
 			}
-		}
+		})();
 
 		const handleFsChange = () => {
 			isFullscreen = !!document.fullscreenElement;
@@ -165,7 +95,7 @@
 		return () => document.removeEventListener("fullscreenchange", handleFsChange);
 	});
 
-	// Beheert het pauzeren van niet-actieve video's en ondersteunt fallback play
+	// Manages pausing inactive videos and supports fallback play
 	$effect(() => {
 		if (!containerElement || !activeFeedId) return;
 
@@ -183,14 +113,12 @@
 		});
 	});
 
-	function calculateScore(short) {
-		if (!short.videoLength) return "0.0";
-		const totalLikes = short.likesCount + (short.liked ? 1 : 0);
-		const score = (short.watchDuration / short.videoLength) * 100 + totalLikes * 2;
-		return score.toFixed(1);
+	// Hardcoded to 0 for now as requested
+	function calculateScore(short: any) {
+		return "0.0";
 	}
 
-	function watchVisibility(node, { id, feedId }) {
+	function watchVisibility(node: HTMLElement, { id, feedId }: { id: string; feedId: string }) {
 		const observer = new IntersectionObserver(
 			(entries) => {
 				entries.forEach((entry) => {
@@ -202,9 +130,10 @@
 							window.history.replaceState({}, "", `/shorts/${id}`);
 						}
 
+						// Infinite scroll simulation: Load more if nearing the end
 						const currentIndex = feed.findIndex((s) => s.feedId === feedId);
-						if (currentIndex >= feed.length - 5) {
-							feed = [...feed, ...createBatch()];
+						if (currentIndex >= feed.length - 3) {
+							loadShortsBatch();
 						}
 					}
 				});
@@ -224,15 +153,11 @@
 		};
 	}
 
-	function toggleLike(feedShort) {
-		const sourceShort = sourceShorts.find((s) => s.id === feedShort.id);
-		if (sourceShort) sourceShort.liked = !sourceShort.liked;
+	// Retained local-only mock functionality
+	function toggleLike(feedShort: any) {
+		feedShort.liked = !feedShort.liked;
 
-		feed.forEach((item) => {
-			if (item.id === feedShort.id) item.liked = sourceShort.liked;
-		});
-
-		if (sourceShort && sourceShort.liked) {
+		if (feedShort.liked) {
 			const newSparks = [];
 			for (let i = 0; i < 24; i++) {
 				const angle = Math.random() * Math.PI * 2;
@@ -251,7 +176,7 @@
 		}
 	}
 
-	async function handleShare(short) {
+	async function handleShare(short: any) {
 		const shareUrl = `${window.location.origin}/shorts/${short.id}`;
 		try {
 			await navigator.clipboard.writeText(shareUrl);
@@ -276,7 +201,7 @@
 		activeDropdownId = null;
 	}
 
-	function togglePanel(feedId, type) {
+	function togglePanel(feedId: string | null, type: string | null) {
 		if (activePanel.feedId === feedId && activePanel.type === type) {
 			activePanel = { feedId: null, type: null };
 		} else {
@@ -296,6 +221,12 @@
 	{/if}
 
 	<div class="shorts-container" bind:this={containerElement}>
+		{#if isLoading}
+			<Flex justifyContent="center" alignItems="center" height="100%">
+				<p>Loading shorts...</p>
+			</Flex>
+		{/if}
+
 		{#each feed as short, index (short.feedId)}
 			{@const isActive = short.feedId === activeFeedId}
 			<div
@@ -303,18 +234,21 @@
 				data-feed-id={short.feedId}
 				style:opacity={isActive ? "1" : "0.4"}
 				use:watchVisibility={{ id: short.id, feedId: short.feedId }}>
-				<!-- autoplay en preload="auto" voor nabije/actieve items dwingen Firefox Mobile om te laden en af te spelen -->
 				<video
 					src={short.videoUrl}
 					loop
-					muted
+					muted={false}
 					playsinline
 					autoplay={isActive}
 					preload={Math.abs(index - activeIndex) <= 2 ? "auto" : "metadata"}
 					onloadeddata={(e) => {
-						if (e.target.currentTime === 0) e.target.currentTime = 0.1;
+						const target = e.target as HTMLVideoElement;
+						if (target.currentTime === 0) target.currentTime = 0.1;
 					}}
-					onclick={(e) => (e.target.paused ? e.target.play() : e.target.pause())}>
+					onclick={(e) => {
+						const target = e.target as HTMLVideoElement;
+						target.paused ? target.play() : target.pause();
+					}}>
 				</video>
 
 				<div class="top-menu-wrapper">
@@ -363,8 +297,8 @@
 				</div>
 
 				<div class="overlay">
-					<h3>@{short.creator}</h3>
-					<p>{short.title} (ID: {short.id})</p>
+					<h3>@{short.creatorDisplayName || short.creator}</h3>
+					<p>{short.title}</p>
 				</div>
 
 				<div class="action-buttons">
@@ -426,7 +360,7 @@
 									</p>
 									<p>
 										<strong>Video ID:</strong>
-										{short.id}
+										<span style="font-size: 0.8em; opacity: 0.7;">{short.id}</span>
 									</p>
 									<hr class="panel-divider" />
 									<p class="score-highlight">
@@ -451,7 +385,11 @@
 									</p>
 								</div>
 							{:else if activePanel.type === "comment"}
-								<div class="empty-comments"></div>
+								<div class="empty-comments">
+									<p style="text-align: center; opacity: 0.6; margin-top: 2rem;">
+										Comments are disabled for testing.
+									</p>
+								</div>
 							{/if}
 						</div>
 					</div>
@@ -556,6 +494,17 @@
 		text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
 		pointer-events: none;
 		z-index: 10;
+	}
+
+	.overlay h3 {
+		margin: 0 0 4px 0;
+		font-size: 1.1rem;
+	}
+
+	.overlay p {
+		margin: 0;
+		font-size: 0.95rem;
+		opacity: 0.9;
 	}
 
 	.action-buttons {
