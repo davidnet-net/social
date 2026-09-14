@@ -229,7 +229,7 @@
 
 		{#each feed as short, index (short.feedId)}
 			{@const isActive = short.feedId === activeFeedId}
-			<!-- Bereken de afstand tot de actieve video. Render alleen als hij dichtbij is -->
+			<!-- Bereken de afstand tot de actieve video. -->
 			{@const isNear = activeIndex !== -1 && Math.abs(index - activeIndex) <= 2}
 
 			<div
@@ -237,25 +237,23 @@
 				data-feed-id={short.feedId}
 				style:opacity={isActive ? "1" : "0.4"}
 				use:watchVisibility={{ id: short.id, feedId: short.feedId }}>
-				<!-- Video tag verdwijnt uit de DOM en het geheugen als hij ver weg is -->
-				{#if isNear}
-					<video
-						src={short.videoUrl}
-						loop
-						muted={false}
-						playsinline
-						autoplay={isActive}
-						preload={Math.abs(index - activeIndex) <= 1 ? "auto" : "metadata"}
-						onloadeddata={(e) => {
-							const target = e.target as HTMLVideoElement;
-							if (target.currentTime === 0) target.currentTime = 0.1;
-						}}
-						onclick={(e) => {
-							const target = e.target as HTMLVideoElement;
-							target.paused ? target.play() : target.pause();
-						}}>
-					</video>
-				{/if}
+				<!-- Video tag blijft in de DOM, maar de src wordt leeggemaakt als hij ver weg is -->
+				<video
+					src={isNear ? short.videoUrl : ""}
+					loop
+					muted={false}
+					playsinline
+					preload={Math.abs(index - activeIndex) <= 1 ? "auto" : "metadata"}
+					onloadeddata={(e) => {
+						const target = e.target as HTMLVideoElement;
+						if (target.currentTime === 0) target.currentTime = 0.1;
+						if (isActive) target.play().catch(() => {});
+					}}
+					onclick={(e) => {
+						const target = e.target as HTMLVideoElement;
+						target.paused ? target.play() : target.pause();
+					}}>
+				</video>
 
 				<div class="top-menu-wrapper">
 					<Dropdown isOpen={activeDropdownId === short.feedId} placement="bottom-end">
