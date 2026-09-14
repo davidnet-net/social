@@ -17,7 +17,6 @@
 	import { token } from "@davidnet-net/svelte-ui/tokens";
 	import { goto } from "$app/navigation";
 
-	// Replaced generic object with loose any/Record type for dynamic backend data
 	let feed = $state<any[]>([]);
 	let activeFeedId = $state<string | null>(null);
 	let activeDropdownId = $state<string | null>(null);
@@ -25,6 +24,10 @@
 	let isFullscreen = $state(false);
 	let containerElement: HTMLDivElement | undefined;
 	let isLoading = $state(true);
+
+	// Track user interaction globally. Starts muted to satisfy browser autoplay policies,
+	// then unmuttes automatically once the user clicks/interacts.
+	let hasInteracted = $state(false);
 
 	let activeIndex = $derived(feed.findIndex((s) => s.feedId === activeFeedId));
 
@@ -40,14 +43,12 @@
 			if (res.success && res.shorts) {
 				let fetchedShorts = res.shorts.map((s: any) => ({
 					...s,
-					// Assign a unique local ID for the feed loop rendering
 					feedId: Math.random().toString(36).substring(2, 11),
 					sparks: [],
 					copied: false,
-					liked: false // Local state mock
+					liked: false
 				}));
 
-				// If a specific ID was loaded from the URL, move it to the front of the array
 				if (targetId) {
 					const targetIndex = fetchedShorts.findIndex((s: any) => s.id === targetId);
 					if (targetIndex > -1) {
@@ -75,7 +76,6 @@
 			await loadShortsBatch(initialId);
 			isLoading = false;
 
-			// Scroll to the active item slightly after DOM paints
 			if (initialId && containerElement && activeFeedId) {
 				setTimeout(() => {
 					const targetItem = containerElement?.querySelector(
@@ -95,7 +95,7 @@
 		return () => document.removeEventListener("fullscreenchange", handleFsChange);
 	});
 
-	// Manages pausing inactive videos
+	// Manages playing active and pausing inactive videos safely
 	$effect(() => {
 		if (!containerElement || !activeFeedId) return;
 
@@ -106,14 +106,19 @@
 			if (!video) return;
 
 			if (feedId === activeFeedId) {
-				video.play().catch(() => {});
+				video.muted = !hasInteracted;
+				video.play().catch(() => {
+					// Fallback if browser blocks sound initially
+					video.muted = true;
+					hasInteracted = false;
+					video.play().catch(() => {});
+				});
 			} else {
 				video.pause();
 			}
 		});
 	});
 
-	// Hardcoded to 0 for now as requested
 	function calculateScore(short: any) {
 		return "0.0";
 	}
@@ -130,7 +135,6 @@
 							window.history.replaceState({}, "", `/shorts/${id}`);
 						}
 
-						// Infinite scroll simulation: Load more if nearing the end
 						const currentIndex = feed.findIndex((s) => s.feedId === feedId);
 						if (currentIndex >= feed.length - 3) {
 							loadShortsBatch();
@@ -153,7 +157,6 @@
 		};
 	}
 
-	// Retained local-only mock functionality
 	function toggleLike(feedShort: any) {
 		feedShort.liked = !feedShort.liked;
 
@@ -229,7 +232,6 @@
 
 		{#each feed as short, index (short.feedId)}
 			{@const isActive = short.feedId === activeFeedId}
-			<!-- Bereken de afstand tot de actieve video. -->
 			{@const isNear = activeIndex !== -1 && Math.abs(index - activeIndex) <= 2}
 
 			<div
@@ -237,11 +239,10 @@
 				data-feed-id={short.feedId}
 				style:opacity={isActive ? "1" : "0.4"}
 				use:watchVisibility={{ id: short.id, feedId: short.feedId }}>
-				<!-- Video tag blijft in de DOM, maar de src wordt leeggemaakt als hij ver weg is -->
 				<video
 					src={isNear ? short.videoUrl : ""}
 					loop
-					muted={false}
+					muted={!hasInteracted}
 					playsinline
 					preload={Math.abs(index - activeIndex) <= 1 ? "auto" : "metadata"}
 					onloadeddata={(e) => {
@@ -253,7 +254,13 @@
 					}}
 					onclick={(e) => {
 						const target = e.target as HTMLVideoElement;
-						target.paused ? target.play() : target.pause();
+						if (!hasInteracted) {
+							hasInteracted = true;
+							target.muted = false;
+							target.play().catch(() => {});
+						} else {
+							target.paused ? target.play() : target.pause();
+						}
 					}}>
 				</video>
 
@@ -458,7 +465,6 @@
 		border-radius: 12px;
 		overflow: hidden;
 		transition: opacity 0.3s ease;
-		/* Zorgt ervoor dat de container niet instort als de video er (tijdelijk) niet is */
 		background-color: #121212;
 	}
 
