@@ -229,27 +229,33 @@
 
 		{#each feed as short, index (short.feedId)}
 			{@const isActive = short.feedId === activeFeedId}
+			<!-- Bereken de afstand tot de actieve video. Render alleen als hij dichtbij is -->
+			{@const isNear = activeIndex !== -1 && Math.abs(index - activeIndex) <= 2}
+
 			<div
 				class="short-item"
 				data-feed-id={short.feedId}
 				style:opacity={isActive ? "1" : "0.4"}
 				use:watchVisibility={{ id: short.id, feedId: short.feedId }}>
-				<video
-					src={short.videoUrl}
-					loop
-					muted={false}
-					playsinline
-					autoplay={isActive}
-					preload={Math.abs(index - activeIndex) <= 2 ? "auto" : "metadata"}
-					onloadeddata={(e) => {
-						const target = e.target as HTMLVideoElement;
-						if (target.currentTime === 0) target.currentTime = 0.1;
-					}}
-					onclick={(e) => {
-						const target = e.target as HTMLVideoElement;
-						target.paused ? target.play() : target.pause();
-					}}>
-				</video>
+				<!-- Video tag verdwijnt uit de DOM en het geheugen als hij ver weg is -->
+				{#if isNear}
+					<video
+						src={short.videoUrl}
+						loop
+						muted={false}
+						playsinline
+						autoplay={isActive}
+						preload={Math.abs(index - activeIndex) <= 1 ? "auto" : "metadata"}
+						onloadeddata={(e) => {
+							const target = e.target as HTMLVideoElement;
+							if (target.currentTime === 0) target.currentTime = 0.1;
+						}}
+						onclick={(e) => {
+							const target = e.target as HTMLVideoElement;
+							target.paused ? target.play() : target.pause();
+						}}>
+					</video>
+				{/if}
 
 				<div class="top-menu-wrapper">
 					<Dropdown isOpen={activeDropdownId === short.feedId} placement="bottom-end">
@@ -452,6 +458,8 @@
 		border-radius: 12px;
 		overflow: hidden;
 		transition: opacity 0.3s ease;
+		/* Zorgt ervoor dat de container niet instort als de video er (tijdelijk) niet is */
+		background-color: #121212;
 	}
 
 	video {
