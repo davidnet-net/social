@@ -25,23 +25,42 @@
     let containerElement: HTMLDivElement | undefined;
     let isLoading = $state(true);
 
-    // Track user interaction globally. Starts muted to satisfy browser autoplay policies, 
-    // then unmuttes automatically once the user clicks/interacts.
+    // Track user interaction globally
     let hasInteracted = $state(false);
+
+    // Infinite scroll & loop status
+    let dbOffset = 0;
+    let isFetching = false;
 
     let activeIndex = $derived(feed.findIndex((s) => s.feedId === activeFeedId));
 
     async function loadShortsBatch(targetId: string | null = null) {
+        if (isFetching) return;
+        isFetching = true;
+
         try {
-            const currentOffset = feed.length;
-            const res = await getFetch(
-                `${PUBLIC_BACKEND_URL}/social/shorts?limit=15&offset=${currentOffset}`,
+            let res = await getFetch(
+                `${PUBLIC_BACKEND_URL}/social/shorts?limit=15&offset=${dbOffset}`,
                 {},
                 undefined,
                 true
             );
 
-            if (res.success && res.shorts) {
+            // LOOP LOGICA: Als we niks meer terugkrijgen, zijn we aan het einde van de database.
+            // Reset offset naar 0 en haal de eerste 15 weer op!
+            if (res.success && res.shorts && res.shorts.length === 0 && feed.length > 0) {
+                dbOffset = 0;
+                res = await getFetch(
+                    `${PUBLIC_BACKEND_URL}/social/shorts?limit=15&offset=${dbOffset}`,
+                    {},
+                    undefined,
+                    true
+                );
+            }
+
+            if (res.success && res.shorts && res.shorts.length > 0) {
+                dbOffset += res.shorts.length; // Verhoog onze database teller
+
                 let fetchedShorts = res.shorts.map((s: any) => ({
                     ...s,
                     feedId: Math.random().toString(36).substring(2, 11),
@@ -66,6 +85,8 @@
             }
         } catch (err) {
             console.error("Failed to load feed:", err);
+        } finally {
+            isFetching = false;
         }
     }
 
@@ -96,7 +117,6 @@
         return () => document.removeEventListener("fullscreenchange", handleFsChange);
     });
 
-    // Manages playing active and pausing inactive videos safely
     $effect(() => {
         if (!containerElement || !activeFeedId) return;
 
@@ -109,7 +129,6 @@
             if (feedId === activeFeedId) {
                 video.muted = !hasInteracted;
                 video.play().catch(() => {
-                    // Fallback if browser blocks sound initially
                     video.muted = true;
                     hasInteracted = false;
                     video.play().catch(() => {});
