@@ -33,6 +33,10 @@
 	let dbOffset = 0;
 	let isFetching = false;
 
+	// Report State
+	let showreporter = $state(false);
+	let reportedShortId = $state<string | null>(null);
+
 	let activeIndex = $derived(feed.findIndex((s) => s.feedId === activeFeedId));
 
 	async function loadShortsBatch(targetId: string | null = null) {
@@ -233,8 +237,6 @@
 		}
 		activeDropdownId = null;
 	}
-
-	let showreporter = $state(false);
 </script>
 
 <div class="shorts-page">
@@ -314,7 +316,9 @@
 							alignContent="left"
 							stretchwidth
 							onclick={() => {
-								showreporter = !showreporter;
+								reportedShortId = short.id;
+								showreporter = true;
+								activeDropdownId = null;
 							}}>
 							Report
 						</Button>
@@ -442,11 +446,8 @@
 	</div>
 </div>
 
-{#if showreporter}
-	<ReportModal
-		bind:isOpen={showreporter}
-		reportType="short"
-		reportedId={currentShort.id}
+{#if showreporter && reportedShortId}
+	<ReportModal bind:isOpen={showreporter} reportType="short" reportedId={reportedShortId} />
 {/if}
 
 <style>
