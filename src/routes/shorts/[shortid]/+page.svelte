@@ -27,12 +27,15 @@
 	let containerElement: HTMLDivElement | undefined;
 	let isLoading = $state(true);
 
-	// Track user interaction globally
 	let hasInteracted = $state(false);
 
-	// Infinite scroll & loop status
-	let dbOffset = 0;
+	// Feed State & Loop Prevention
+	let seenIds = $state<string[]>([]);
 	let isFetching = false;
+
+	// Watch Time Tracking
+	let watchStartTime = $state<number>(Date.now());
+	let previousActiveFeedId = $state<string | null>(null);
 
 	// Report State
 	let showreporter = $state(false);
@@ -40,7 +43,6 @@
 
 	let activeIndex = $derived(feed.findIndex((s) => s.feedId === activeFeedId));
 
-	// --- BAN CHECK LOGIC ---
 	async function checkUserBanStatus() {
 		if (!authState.isLoggedIn) return;
 		try {
@@ -51,7 +53,6 @@
 				true
 			);
 			if (res.success && res.isBanned) {
-				// Redirect user to a ban notice page or lock them out
 				goto(`/banned?until=${encodeURIComponent(res.bannedUntil)}`);
 			}
 		} catch (err) {
@@ -64,25 +65,21 @@
 		isFetching = true;
 
 		try {
-			let res = await getFetch(
-				`${PUBLIC_BACKEND_URL}/social/shorts?limit=15&offset=${dbOffset}`,
-				{},
+			const res = await getFetch(
+				`${PUBLIC_BACKEND_URL}/social/shorts/feed`,
+				{
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ limit: 15, seenIds: seenIds })
+				},
 				undefined,
 				true
 			);
 
-			if (res.success && res.shorts && res.shorts.length === 0 && feed.length > 0) {
-				dbOffset = 0;
-				res = await getFetch(
-					`${PUBLIC_BACKEND_URL}/social/shorts?limit=15&offset=${dbOffset}`,
-					{},
-					undefined,
-					true
-				);
-			}
-
 			if (res.success && res.shorts && res.shorts.length > 0) {
-				dbOffset += res.shorts.length;
+				if (res.loopRestarted) {
+					seenIds = [];
+				}
 
 				let fetchedShorts = res.shorts.map((s: any) => ({
 					...s,
@@ -100,6 +97,8 @@
 					}
 				}
 
+				const newIds = fetchedShorts.map((s: any) => s.id);
+				seenIds = [...seenIds, ...newIds];
 				feed = [...feed, ...fetchedShorts];
 
 				if (feed.length > 0 && !activeFeedId) {
@@ -118,10 +117,7 @@
 
 		(async () => {
 			await whenAuthReady();
-
-			// Run the ban check right away on load
 			await checkUserBanStatus();
-
 			await loadShortsBatch(initialId);
 			isLoading = false;
 
@@ -130,23 +126,19 @@
 					const targetItem = containerElement?.querySelector(
 						`[data-feed-id="${activeFeedId}"]`
 					) as HTMLElement;
-					if (targetItem) {
-						containerElement!.scrollTop = targetItem.offsetTop;
-					}
+					if (targetItem) containerElement!.scrollTop = targetItem.offsetTop;
 				}, 100);
 			}
 		})();
 
-		const handleFsChange = () => {
-			isFullscreen = !!document.fullscreenElement;
-		};
+		const handleFsChange = () => (isFullscreen = !!document.fullscreenElement);
 		document.addEventListener("fullscreenchange", handleFsChange);
 		return () => document.removeEventListener("fullscreenchange", handleFsChange);
 	});
 
+	// Handle Mute/Play states based on active feed
 	$effect(() => {
 		if (!containerElement || !activeFeedId) return;
-
 		const items = containerElement.querySelectorAll(".short-item");
 		items.forEach((item) => {
 			const video = item.querySelector("video");
@@ -166,8 +158,37 @@
 		});
 	});
 
+	// Handle Watch Time tracking
+	$effect(() => {
+		if (activeFeedId !== previousActiveFeedId) {
+			if (previousActiveFeedId) {
+				const durationWatched = Math.floor((Date.now() - watchStartTime) / 1000);
+				if (durationWatched > 0) {
+					const originalShort = feed.find((s) => s.feedId === previousActiveFeedId);
+					if (originalShort) {
+						originalShort.views += 1;
+						originalShort.watchDuration += durationWatched;
+
+						getFetch(
+							`${PUBLIC_BACKEND_URL}/social/shorts/${originalShort.id}/watch`,
+							{
+								method: "POST",
+								headers: { "Content-Type": "application/json" },
+								body: JSON.stringify({ watchDuration: durationWatched })
+							},
+							undefined,
+							true
+						).catch(() => {});
+					}
+				}
+			}
+			watchStartTime = Date.now();
+			previousActiveFeedId = activeFeedId;
+		}
+	});
+
 	function calculateScore(short: any) {
-		return "0.0";
+		return short.score ? Number(short.score).toFixed(2) : "0.00";
 	}
 
 	function watchVisibility(node: HTMLElement, { id, feedId }: { id: string; feedId: string }) {
@@ -189,14 +210,9 @@
 					}
 				});
 			},
-			{
-				root: containerElement,
-				threshold: 0.5
-			}
+			{ root: containerElement, threshold: 0.5 }
 		);
-
 		observer.observe(node);
-
 		return {
 			destroy() {
 				observer.disconnect();
@@ -204,9 +220,26 @@
 		};
 	}
 
-	function toggleLike(feedShort: any) {
+	async function toggleLike(feedShort: any) {
 		feedShort.liked = !feedShort.liked;
 
+		// Instant visual feedback
+		if (feedShort.liked) feedShort.likesCount++;
+		else feedShort.likesCount = Math.max(0, feedShort.likesCount - 1);
+
+		// Update Backend
+		getFetch(
+			`${PUBLIC_BACKEND_URL}/social/shorts/${feedShort.id}/like`,
+			{
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ liked: feedShort.liked })
+			},
+			undefined,
+			true
+		).catch(() => {});
+
+		// Spark Animation
 		if (feedShort.liked) {
 			const newSparks = [];
 			for (let i = 0; i < 24; i++) {
@@ -219,7 +252,6 @@
 				});
 			}
 			feedShort.sparks = newSparks;
-
 			setTimeout(() => {
 				feedShort.sparks = [];
 			}, 600);
@@ -242,7 +274,6 @@
 
 	function toggleFullscreen() {
 		if (!containerElement) return;
-
 		if (!document.fullscreenElement) {
 			containerElement.requestFullscreen?.().catch((err) => console.error(err));
 		} else {
@@ -292,6 +323,7 @@
 				data-feed-id={short.feedId}
 				style:opacity={isActive ? "1" : "0.4"}
 				use:watchVisibility={{ id: short.id, feedId: short.feedId }}>
+				<!-- svelte-ignore a11y_media_has_caption -->
 				<video
 					src={isNear ? short.videoUrl : ""}
 					loop
@@ -301,9 +333,7 @@
 					onloadeddata={(e) => {
 						const target = e.target as HTMLVideoElement;
 						if (target.currentTime === 0) target.currentTime = 0.1;
-						if (isActive) {
-							target.play().catch(() => {});
-						}
+						if (isActive) target.play().catch(() => {});
 					}}
 					onclick={(e) => {
 						const target = e.target as HTMLVideoElement;
@@ -385,6 +415,7 @@
 								<Icon icon="favorite" />
 							{/if}
 						</button>
+						<span style="font-size: 0.8rem; text-shadow: 0 1px 2px black;">{short.likesCount}</span>
 
 						{#each short.sparks as spark (spark.id)}
 							<span
@@ -396,19 +427,24 @@
 						{/each}
 					</div>
 
-					<button
-						class="action-btn"
-						aria-label="Comment"
-						onclick={() => togglePanel(short.feedId, "comment")}>
-						<Icon icon="tooltip_2" />
-					</button>
-					<button class="action-btn" aria-label="Share" onclick={() => handleShare(short)}>
-						{#if short.copied}
-							<Icon icon="check" />
-						{:else}
-							<Icon icon="share" />
-						{/if}
-					</button>
+					<div class="btn-wrapper">
+						<button
+							class="action-btn"
+							aria-label="Comment"
+							onclick={() => togglePanel(short.feedId, "comment")}>
+							<Icon icon="tooltip_2" />
+						</button>
+					</div>
+
+					<div class="btn-wrapper">
+						<button class="action-btn" aria-label="Share" onclick={() => handleShare(short)}>
+							{#if short.copied}
+								<Icon icon="check" />
+							{:else}
+								<Icon icon="share" />
+							{/if}
+						</button>
+					</div>
 				</div>
 
 				{#if activePanel.feedId === short.feedId && activePanel.type}
@@ -448,7 +484,7 @@
 									</p>
 									<p>
 										<strong>Likes:</strong>
-										{short.likesCount + (short.liked ? 1 : 0)}
+										{short.likesCount}
 									</p>
 									<p>
 										<strong>Watch Duration:</strong>
@@ -479,19 +515,25 @@
 {/if}
 
 <style>
+	.btn-wrapper {
+		position: relative;
+		display: flex;
+		flex-direction: column;
+		justify-content: center;
+		align-items: center;
+		gap: 4px;
+	}
 	.shorts-page {
 		position: relative;
 		width: 100%;
 		height: calc(100dvh - 56px);
 	}
-
 	.upload-bar {
 		position: absolute;
 		top: 16px;
 		right: 16px;
 		z-index: 50;
 	}
-
 	.shorts-container {
 		height: 100%;
 		width: 100%;
@@ -502,7 +544,6 @@
 		align-items: center;
 		-webkit-overflow-scrolling: touch;
 	}
-
 	.shorts-container:fullscreen {
 		background-color: #000;
 		height: 100dvh;
@@ -513,11 +554,9 @@
 		overflow-y: scroll;
 		scroll-snap-type: y mandatory;
 	}
-
 	.shorts-container::backdrop {
 		background-color: #000;
 	}
-
 	.short-item {
 		flex-shrink: 0;
 		height: 100%;
@@ -533,13 +572,11 @@
 		transition: opacity 0.3s ease;
 		background-color: #121212;
 	}
-
 	video {
 		width: 100%;
 		height: 100%;
 		object-fit: cover;
 	}
-
 	.top-menu-wrapper {
 		position: absolute;
 		top: 16px;
@@ -550,7 +587,6 @@
 		gap: 0.5rem;
 		flex-direction: column;
 	}
-
 	.top-menu-btn {
 		background: rgba(0, 0, 0, 0.5);
 		border: none;
@@ -564,7 +600,6 @@
 		align-items: center;
 		font-size: 1.5rem;
 	}
-
 	.overlay {
 		position: absolute;
 		bottom: 24px;
@@ -575,18 +610,15 @@
 		pointer-events: none;
 		z-index: 10;
 	}
-
 	.overlay h3 {
 		margin: 0 0 4px 0;
 		font-size: 1.1rem;
 	}
-
 	.overlay p {
 		margin: 0;
 		font-size: 0.95rem;
 		opacity: 0.9;
 	}
-
 	.action-buttons {
 		position: absolute;
 		right: 16px;
@@ -597,14 +629,6 @@
 		align-items: center;
 		z-index: 10;
 	}
-
-	.btn-wrapper {
-		position: relative;
-		display: flex;
-		justify-content: center;
-		align-items: center;
-	}
-
 	.action-btn {
 		background: rgba(0, 0, 0, 0.6);
 		border: none;
@@ -619,11 +643,9 @@
 		font-size: 1.3rem;
 		transition: transform 0.2s;
 	}
-
 	.action-btn:hover {
 		transform: scale(1.1);
 	}
-
 	.spark {
 		position: absolute;
 		width: 6px;
@@ -631,8 +653,8 @@
 		border-radius: 50%;
 		pointer-events: none;
 		animation: spark-fly 0.6s ease-out forwards;
+		top: 23px;
 	}
-
 	.side-panel {
 		position: absolute;
 		top: 0;
@@ -650,7 +672,6 @@
 		color: white;
 		animation: slideIn 0.25s ease-out;
 	}
-
 	@keyframes slideIn {
 		from {
 			transform: translateX(100%);
@@ -659,7 +680,6 @@
 			transform: translateX(0);
 		}
 	}
-
 	.panel-header {
 		display: flex;
 		justify-content: space-between;
@@ -668,12 +688,10 @@
 		padding-bottom: 12px;
 		margin-bottom: 16px;
 	}
-
 	.panel-header h4 {
 		margin: 0;
 		font-size: 1.1rem;
 	}
-
 	.close-panel-btn {
 		background: transparent;
 		border: none;
@@ -685,33 +703,27 @@
 		padding: 4px;
 		border-radius: 50%;
 	}
-
 	.close-panel-btn:hover {
 		background: rgba(255, 255, 255, 0.1);
 	}
-
 	.panel-content {
 		flex: 1;
 		overflow-y: auto;
 	}
-
 	.info-content p {
 		margin: 8px 0;
 		font-size: 0.95rem;
 		color: rgba(255, 255, 255, 0.85);
 	}
-
 	.panel-divider {
 		border: 0;
 		border-top: 1px solid rgba(255, 255, 255, 0.15);
 		margin: 16px 0;
 	}
-
 	.score-highlight {
 		font-size: 1.1rem !important;
 		color: #00f2fe !important;
 	}
-
 	@keyframes spark-fly {
 		0% {
 			transform: translate(0, 0) scale(1);
