@@ -52,7 +52,7 @@
 		};
 
 		const result = await postFetch(
-			PUBLIC_BACKEND_URL + "/moderation/reports",
+			PUBLIC_BACKEND_URL + "/support/moderation/report",
 			payload,
 			undefined,
 			true
