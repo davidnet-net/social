@@ -9,6 +9,7 @@
 		Flex,
 		getFetch,
 		Icon,
+		ReportModal,
 		LinkButton,
 		Spinner,
 		toast,
@@ -16,7 +17,6 @@
 	} from "@davidnet-net/svelte-ui";
 	import { token } from "@davidnet-net/svelte-ui/tokens";
 	import { goto } from "$app/navigation";
-	import ReportModal from "$lib/components/ReportModal/ReportModal.svelte";
 	import { page } from "$app/state";
 
 	let feed = $state<any[]>([]);
