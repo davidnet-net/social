@@ -15,7 +15,7 @@
 		const urlParams = new URLSearchParams(queryString);
 		const untilValue = urlParams.get("until");
 		if (untilValue) {
-			formattedUntil = formatIsoToPreferred(untilValue);
+			formattedUntil = formatIsoToPreferred(untilValue, true);
 		}
 	});
 </script>
