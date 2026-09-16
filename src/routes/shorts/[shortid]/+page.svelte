@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { page } from "$app/state";
 	import { onMount } from "svelte";
 	import { PUBLIC_BACKEND_URL } from "$env/static/public";
 	import {
@@ -11,12 +10,14 @@
 		getFetch,
 		Icon,
 		LinkButton,
+		Spinner,
 		toast,
 		whenAuthReady
 	} from "@davidnet-net/svelte-ui";
 	import { token } from "@davidnet-net/svelte-ui/tokens";
 	import { goto } from "$app/navigation";
 	import ReportModal from "$lib/components/ReportModal/ReportModal.svelte";
+	import { page } from "$app/state";
 
 	let feed = $state<any[]>([]);
 	let activeFeedId = $state<string | null>(null);
@@ -39,6 +40,25 @@
 
 	let activeIndex = $derived(feed.findIndex((s) => s.feedId === activeFeedId));
 
+	// --- BAN CHECK LOGIC ---
+	async function checkUserBanStatus() {
+		if (!authState.isLoggedIn) return;
+		try {
+			const res = await getFetch(
+				`${PUBLIC_BACKEND_URL}/moderation/me/ban-status`,
+				{},
+				undefined,
+				true
+			);
+			if (res.success && res.isBanned) {
+				// Redirect user to a ban notice page or lock them out
+				goto(`/banned?until=${encodeURIComponent(res.bannedUntil)}`);
+			}
+		} catch (err) {
+			console.error("Failed to check ban status:", err);
+		}
+	}
+
 	async function loadShortsBatch(targetId: string | null = null) {
 		if (isFetching) return;
 		isFetching = true;
@@ -51,8 +71,6 @@
 				true
 			);
 
-			// LOOP LOGICA: Als we niks meer terugkrijgen, zijn we aan het einde van de database.
-			// Reset offset naar 0 en haal de eerste 15 weer op!
 			if (res.success && res.shorts && res.shorts.length === 0 && feed.length > 0) {
 				dbOffset = 0;
 				res = await getFetch(
@@ -64,7 +82,7 @@
 			}
 
 			if (res.success && res.shorts && res.shorts.length > 0) {
-				dbOffset += res.shorts.length; // Verhoog onze database teller
+				dbOffset += res.shorts.length;
 
 				let fetchedShorts = res.shorts.map((s: any) => ({
 					...s,
@@ -100,6 +118,10 @@
 
 		(async () => {
 			await whenAuthReady();
+
+			// Run the ban check right away on load
+			await checkUserBanStatus();
+
 			await loadShortsBatch(initialId);
 			isLoading = false;
 
@@ -252,6 +274,7 @@
 		{#if isLoading}
 			<Flex justifyContent="center" alignItems="center" height="100%">
 				<p>Loading shorts...</p>
+				<Spinner size="medium" />
 			</Flex>
 		{/if}
 
