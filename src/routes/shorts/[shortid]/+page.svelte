@@ -272,9 +272,14 @@
 
 	<div class="shorts-container" bind:this={containerElement}>
 		{#if isLoading}
-			<Flex justifyContent="center" alignItems="center" height="100%">
+			<Flex
+				justifyContent="center"
+				alignItems="center"
+				height="100%"
+				direction="column"
+				gap="medium">
 				<p>Loading shorts...</p>
-				<Spinner size="medium" />
+				<Spinner size="large" />
 			</Flex>
 		{/if}
 

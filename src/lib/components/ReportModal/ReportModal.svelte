@@ -142,7 +142,9 @@
 		<Flex height="100%" gap="medium" justifyContent="center" alignItems="center" direction="column">
 			<Icon icon="check_circle" size="giant" color="success" />
 			<span style="font-size: {token.global.font.size.large}; text-align: center">
-				Thank you. Your report has been received and will be reviewed by a moderator.
+				Thank you.
+				<br />
+				Your report has been received and will be reviewed by a moderator.
 			</span>
 		</Flex>
 		{#snippet actions()}
