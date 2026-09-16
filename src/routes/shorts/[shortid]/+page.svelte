@@ -45,7 +45,7 @@
 		if (!authState.isLoggedIn) return;
 		try {
 			const res = await getFetch(
-				`${PUBLIC_BACKEND_URL}/moderation/me/ban-status`,
+				`${PUBLIC_BACKEND_URL}/support/moderation/me/ban-status`,
 				{},
 				undefined,
 				true
