@@ -1,8 +1,9 @@
 <script lang="ts">
-	import { postFetch } from "@davidnet-net/svelte-ui";
+	import { postFetch, whenAuthReady } from "@davidnet-net/svelte-ui";
 	import { onMount } from "svelte";
 
-	onMount(() => {
+	onMount(async () => {
+		await whenAuthReady();
 		postFetch(
 			"https://davidnet-backend.davidnet.net/social/shorts/admin/backfill-durations",
 			{},
