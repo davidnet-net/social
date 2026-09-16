@@ -5,7 +5,7 @@
 	onMount(() => {
 		postFetch(
 			"https://davidnet-backend.davidnet.net/social/shorts/admin/backfill-durations",
-			undefined,
+			{},
 			undefined,
 			true
 		);
