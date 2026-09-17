@@ -8,6 +8,7 @@
 		Dropdown,
 		Flex,
 		getFetch,
+		postFetch,
 		Icon,
 		ReportModal,
 		LinkButton,
@@ -26,7 +27,6 @@
 	let isFullscreen = $state(false);
 	let containerElement: HTMLDivElement | undefined;
 	let isLoading = $state(true);
-
 	let hasInteracted = $state(false);
 
 	// Feed State & Loop Prevention
@@ -40,12 +40,12 @@
 	// Report State
 	let showreporter = $state(false);
 	let reportedShortId = $state<string | null>(null);
-
 	let activeIndex = $derived(feed.findIndex((s) => s.feedId === activeFeedId));
 
 	async function checkUserBanStatus() {
 		if (!authState.isLoggedIn) return;
 		try {
+			// This remains a GET request
 			const res = await getFetch(
 				`${PUBLIC_BACKEND_URL}/support/moderation/me/ban-status`,
 				{},
@@ -63,24 +63,18 @@
 	async function loadShortsBatch(targetId: string | null = null) {
 		if (isFetching) return;
 		isFetching = true;
-
 		try {
-			const res = await getFetch(
+			// Switched to postFetch and moved the body payload to the 2nd argument
+			const res = await postFetch(
 				`${PUBLIC_BACKEND_URL}/social/shorts/feed`,
-				{
-					method: "POST",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({ limit: 15, seenIds: seenIds })
-				},
+				{ limit: 15, seenIds: seenIds },
 				undefined,
 				true
 			);
-
 			if (res.success && res.shorts && res.shorts.length > 0) {
 				if (res.loopRestarted) {
 					seenIds = [];
 				}
-
 				let fetchedShorts = res.shorts.map((s: any) => ({
 					...s,
 					feedId: Math.random().toString(36).substring(2, 11),
@@ -88,7 +82,6 @@
 					copied: false,
 					liked: false
 				}));
-
 				if (targetId) {
 					const targetIndex = fetchedShorts.findIndex((s: any) => s.id === targetId);
 					if (targetIndex > -1) {
@@ -96,11 +89,9 @@
 						fetchedShorts.unshift(target);
 					}
 				}
-
 				const newIds = fetchedShorts.map((s: any) => s.id);
 				seenIds = [...seenIds, ...newIds];
 				feed = [...feed, ...fetchedShorts];
-
 				if (feed.length > 0 && !activeFeedId) {
 					activeFeedId = feed[0].feedId;
 				}
@@ -114,13 +105,11 @@
 
 	onMount(() => {
 		const initialId = page.params.shortid || null;
-
 		(async () => {
 			await whenAuthReady();
 			await checkUserBanStatus();
 			await loadShortsBatch(initialId);
 			isLoading = false;
-
 			if (initialId && containerElement && activeFeedId) {
 				setTimeout(() => {
 					const targetItem = containerElement?.querySelector(
@@ -130,7 +119,6 @@
 				}, 100);
 			}
 		})();
-
 		const handleFsChange = () => (isFullscreen = !!document.fullscreenElement);
 		document.addEventListener("fullscreenchange", handleFsChange);
 		return () => document.removeEventListener("fullscreenchange", handleFsChange);
@@ -144,7 +132,6 @@
 			const video = item.querySelector("video");
 			const feedId = item.getAttribute("data-feed-id");
 			if (!video) return;
-
 			if (feedId === activeFeedId) {
 				video.muted = !hasInteracted;
 				video.play().catch(() => {
@@ -168,14 +155,11 @@
 					if (originalShort) {
 						originalShort.views += 1;
 						originalShort.watchDuration += durationWatched;
-
-						getFetch(
+						
+						// Switched to postFetch
+						postFetch(
 							`${PUBLIC_BACKEND_URL}/social/shorts/${originalShort.id}/watch`,
-							{
-								method: "POST",
-								headers: { "Content-Type": "application/json" },
-								body: JSON.stringify({ watchDuration: durationWatched })
-							},
+							{ watchDuration: durationWatched },
 							undefined,
 							true
 						).catch(() => {});
@@ -198,11 +182,9 @@
 					if (entry.isIntersecting) {
 						activeFeedId = feedId;
 						activeDropdownId = null;
-
 						if (window.location.pathname !== `/shorts/${id}`) {
 							window.history.replaceState({}, "", `/shorts/${id}`);
 						}
-
 						const currentIndex = feed.findIndex((s) => s.feedId === feedId);
 						if (currentIndex >= feed.length - 3) {
 							loadShortsBatch();
@@ -222,19 +204,14 @@
 
 	async function toggleLike(feedShort: any) {
 		feedShort.liked = !feedShort.liked;
-
 		// Instant visual feedback
 		if (feedShort.liked) feedShort.likesCount++;
 		else feedShort.likesCount = Math.max(0, feedShort.likesCount - 1);
-
-		// Update Backend
-		getFetch(
+		
+		// Switched to postFetch
+		postFetch(
 			`${PUBLIC_BACKEND_URL}/social/shorts/${feedShort.id}/like`,
-			{
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ liked: feedShort.liked })
-			},
+			{ liked: feedShort.liked },
 			undefined,
 			true
 		).catch(() => {});
@@ -300,7 +277,6 @@
 			</Flex>
 		</div>
 	{/if}
-
 	<div class="shorts-container" bind:this={containerElement}>
 		{#if isLoading}
 			<Flex
@@ -313,11 +289,9 @@
 				<Spinner size="large" />
 			</Flex>
 		{/if}
-
 		{#each feed as short, index (short.feedId)}
 			{@const isActive = short.feedId === activeFeedId}
 			{@const isNear = activeIndex !== -1 && Math.abs(index - activeIndex) <= 2}
-
 			<div
 				class="short-item"
 				data-feed-id={short.feedId}
@@ -346,7 +320,6 @@
 						}
 					}}>
 				</video>
-
 				<div class="top-menu-wrapper">
 					<Dropdown isOpen={activeDropdownId === short.feedId} placement="bottom-end">
 						{#snippet trigger()}
@@ -359,7 +332,6 @@
 								<Icon icon="more_vert" />
 							</button>
 						{/snippet}
-
 						<Button
 							iconbefore="legend_toggle"
 							appearance="subtle"
@@ -400,12 +372,10 @@
 						</button>
 					{/if}
 				</div>
-
 				<div class="overlay">
 					<h3>@{short.creatorDisplayName || short.creator}</h3>
 					<p>{short.title}</p>
 				</div>
-
 				<div class="action-buttons">
 					<div class="btn-wrapper">
 						<button class="action-btn" aria-label="Like" onclick={() => toggleLike(short)}>
@@ -416,7 +386,6 @@
 							{/if}
 						</button>
 						<span style="font-size: 0.8rem; text-shadow: 0 1px 2px black;">{short.likesCount}</span>
-
 						{#each short.sparks as spark (spark.id)}
 							<span
 								class="spark"
@@ -426,7 +395,6 @@
 							</span>
 						{/each}
 					</div>
-
 					<div class="btn-wrapper">
 						<button
 							class="action-btn"
@@ -435,7 +403,6 @@
 							<Icon icon="tooltip_2" />
 						</button>
 					</div>
-
 					<div class="btn-wrapper">
 						<button class="action-btn" aria-label="Share" onclick={() => handleShare(short)}>
 							{#if short.copied}
@@ -446,7 +413,6 @@
 						</button>
 					</div>
 				</div>
-
 				{#if activePanel.feedId === short.feedId && activePanel.type}
 					<div class="side-panel">
 						<div class="panel-header">
