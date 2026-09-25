@@ -53,7 +53,7 @@
 				true
 			);
 			if (res.success && res.isBanned) {
-				goto(`/banned?until=${encodeURIComponent(res.bannedUntil)}`);
+				window.location.href = `https://davidnet.net/moderation/banned?until=${encodeURIComponent(res.bannedUntil)}`;
 			}
 		} catch (err) {
 			console.error("Failed to check ban status:", err);
@@ -155,7 +155,7 @@
 					if (originalShort) {
 						originalShort.views += 1;
 						originalShort.watchDuration += durationWatched;
-						
+
 						// Switched to postFetch
 						postFetch(
 							`${PUBLIC_BACKEND_URL}/social/shorts/${originalShort.id}/watch`,
@@ -207,7 +207,7 @@
 		// Instant visual feedback
 		if (feedShort.liked) feedShort.likesCount++;
 		else feedShort.likesCount = Math.max(0, feedShort.likesCount - 1);
-		
+
 		// Switched to postFetch
 		postFetch(
 			`${PUBLIC_BACKEND_URL}/social/shorts/${feedShort.id}/like`,
