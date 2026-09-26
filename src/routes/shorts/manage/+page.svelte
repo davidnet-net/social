@@ -9,6 +9,7 @@
 		Field,
 		Flex,
 		Form,
+		Link,
 		postFetch,
 		TextField,
 		toast,
@@ -87,13 +88,15 @@
 			{/snippet}
 		</Field>
 
-		Make sure you understand and accept the <Anchor
-			opennewtab
-			href="https://davidnet.net/legal/acceptable_use_policy">
-			AUP
-		</Anchor> and <Anchor opennewtab href="https://davidnet.net/legal/community_guidelines">
-			Community guidelines
-		</Anchor>!
+		<p>
+			Make sure you understand and accept the <Link
+				opennewtab
+				href="https://davidnet.net/legal/acceptable_use_policy">
+				AUP
+			</Link> and <Link opennewtab href="https://davidnet.net/legal/community_guidelines">
+				Community guidelines
+			</Link>!
+		</p>
 		<Field label="Select Video" name="video" required invalid={errorMessage}>
 			{#snippet children()}
 				<input
