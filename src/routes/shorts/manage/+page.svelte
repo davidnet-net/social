@@ -3,6 +3,7 @@
 	import { page } from "$app/state";
 	import { PUBLIC_BACKEND_URL } from "$env/static/public";
 	import {
+		Anchor,
 		authState,
 		Button,
 		Field,
@@ -86,6 +87,13 @@
 			{/snippet}
 		</Field>
 
+		Make sure you understand and accept the <Anchor
+			opennewtab
+			href="https://davidnet.net/legal/acceptable_use_policy">
+			AUP
+		</Anchor> and <Anchor opennewtab href="https://davidnet.net/legal/community_guidelines">
+			Community guidelines
+		</Anchor>!
 		<Field label="Select Video" name="video" required invalid={errorMessage}>
 			{#snippet children()}
 				<input
