@@ -45,7 +45,6 @@
 	async function checkUserBanStatus() {
 		if (!authState.isLoggedIn) return;
 		try {
-			// This remains a GET request
 			const res = await getFetch(
 				`${PUBLIC_BACKEND_URL}/support/moderation/me/ban-status`,
 				{},
@@ -64,7 +63,6 @@
 		if (isFetching) return;
 		isFetching = true;
 		try {
-			// Switched to postFetch and moved the body payload to the 2nd argument
 			const res = await postFetch(
 				`${PUBLIC_BACKEND_URL}/social/shorts/feed`,
 				{ limit: 15, seenIds: seenIds },
@@ -80,7 +78,7 @@
 					feedId: Math.random().toString(36).substring(2, 11),
 					sparks: [],
 					copied: false,
-					liked: false
+					liked: Boolean(s.liked)
 				}));
 				if (targetId) {
 					const targetIndex = fetchedShorts.findIndex((s: any) => s.id === targetId);
@@ -156,7 +154,6 @@
 						originalShort.views += 1;
 						originalShort.watchDuration += durationWatched;
 
-						// Switched to postFetch
 						postFetch(
 							`${PUBLIC_BACKEND_URL}/social/shorts/${originalShort.id}/watch`,
 							{ watchDuration: durationWatched },
@@ -203,35 +200,37 @@
 	}
 
 	async function toggleLike(feedShort: any) {
-		feedShort.liked = !feedShort.liked;
-		// Instant visual feedback
-		if (feedShort.liked) feedShort.likesCount++;
-		else feedShort.likesCount = Math.max(0, feedShort.likesCount - 1);
+		try {
+			const res = await postFetch(
+				`${PUBLIC_BACKEND_URL}/social/shorts/${feedShort.id}/like`,
+				{},
+				undefined,
+				true
+			);
+			if (res.success) {
+				feedShort.liked = res.liked;
+				feedShort.likesCount = res.likesCount;
 
-		// Switched to postFetch
-		postFetch(
-			`${PUBLIC_BACKEND_URL}/social/shorts/${feedShort.id}/like`,
-			{ liked: feedShort.liked },
-			undefined,
-			true
-		).catch(() => {});
-
-		// Spark Animation
-		if (feedShort.liked) {
-			const newSparks = [];
-			for (let i = 0; i < 24; i++) {
-				const angle = Math.random() * Math.PI * 2;
-				const distance = 25 + Math.random() * 65;
-				newSparks.push({
-					id: Math.random(),
-					x: Math.cos(angle) * distance,
-					y: Math.sin(angle) * distance
-				});
+				// Spark Animation if liked
+				if (feedShort.liked) {
+					const newSparks = [];
+					for (let i = 0; i < 24; i++) {
+						const angle = Math.random() * Math.PI * 2;
+						const distance = 25 + Math.random() * 65;
+						newSparks.push({
+							id: Math.random(),
+							x: Math.cos(angle) * distance,
+							y: Math.sin(angle) * distance
+						});
+					}
+					feedShort.sparks = newSparks;
+					setTimeout(() => {
+						feedShort.sparks = [];
+					}, 600);
+				}
 			}
-			feedShort.sparks = newSparks;
-			setTimeout(() => {
-				feedShort.sparks = [];
-			}, 600);
+		} catch (err) {
+			console.error("Failed to toggle like:", err);
 		}
 	}
 
@@ -297,7 +296,6 @@
 				data-feed-id={short.feedId}
 				style:opacity={isActive ? "1" : "0.4"}
 				use:watchVisibility={{ id: short.id, feedId: short.feedId }}>
-				<!-- svelte-ignore a11y_media_has_caption -->
 				<video
 					src={isNear ? short.videoUrl : ""}
 					loop
