@@ -19,6 +19,7 @@
 	import { token } from "@davidnet-net/svelte-ui/tokens";
 	import { goto } from "$app/navigation";
 	import { page } from "$app/state";
+	import * as m from "$lib/paraglide/messages.js";
 
 	let feed = $state<any[]>([]);
 	let activeFeedId = $state<string | null>(null);
@@ -239,7 +240,7 @@
 		try {
 			await navigator.clipboard.writeText(shareUrl);
 			short.copied = true;
-			toast("URL copied to clipboard!", undefined, undefined, 2000, "success");
+			toast(m.page_shorts_share_copied_toast(), undefined, undefined, 2000, "success");
 			setTimeout(() => {
 				short.copied = false;
 			}, 2000);
@@ -272,7 +273,7 @@
 	{#if !appState.isMobile}
 		<div class="upload-bar">
 			<Flex height="fit-content" justifyContent="end">
-				<LinkButton href="/shorts/manage">Manage your videos</LinkButton>
+				<LinkButton href="/shorts/manage">{m.page_shorts_manage_link()}</LinkButton>
 			</Flex>
 		</div>
 	{/if}
@@ -284,7 +285,7 @@
 				height="100%"
 				direction="column"
 				gap="medium">
-				<p>Loading shorts...</p>
+				<p>{m.page_shorts_loading()}</p>
 				<Spinner size="large" />
 			</Flex>
 		{/if}
@@ -323,7 +324,7 @@
 						{#snippet trigger()}
 							<button
 								class="top-menu-btn"
-								aria-label="Menu"
+								aria-label={m.page_shorts_menu_alt()}
 								onclick={() => {
 									activeDropdownId = activeDropdownId === short.feedId ? null : short.feedId;
 								}}>
@@ -336,7 +337,7 @@
 							alignContent="left"
 							stretchwidth
 							onclick={() => togglePanel(short.feedId, "info")}>
-							Information
+							{m.page_shorts_action_information()}
 						</Button>
 						<Button
 							iconbefore="flag"
@@ -348,7 +349,7 @@
 								showreporter = true;
 								activeDropdownId = null;
 							}}>
-							Report
+							{m.page_shorts_action_report()}
 						</Button>
 						<Button
 							iconbefore={isFullscreen ? "fullscreen_exit" : "fullscreen"}
@@ -356,13 +357,13 @@
 							alignContent="left"
 							stretchwidth
 							onclick={toggleFullscreen}>
-							{isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
+							{isFullscreen ? m.page_shorts_action_exit_fullscreen() : m.page_shorts_action_fullscreen()}
 						</Button>
 					</Dropdown>
 					{#if appState.isMobile}
 						<button
 							class="top-menu-btn"
-							aria-label="Menu"
+							aria-label={m.page_shorts_menu_alt()}
 							onclick={() => {
 								goto("/shorts/manage");
 							}}>
@@ -376,7 +377,7 @@
 				</div>
 				<div class="action-buttons">
 					<div class="btn-wrapper">
-						<button class="action-btn" aria-label="Like" onclick={() => toggleLike(short)}>
+						<button class="action-btn" aria-label={m.page_shorts_like_alt()} onclick={() => toggleLike(short)}>
 							{#if short.liked}
 								<Icon icon="favorite" color="danger" />
 							{:else}
@@ -396,13 +397,13 @@
 					<div class="btn-wrapper">
 						<button
 							class="action-btn"
-							aria-label="Comment"
+							aria-label={m.page_shorts_comment_alt()}
 							onclick={() => togglePanel(short.feedId, "comment")}>
 							<Icon icon="tooltip_2" />
 						</button>
 					</div>
 					<div class="btn-wrapper">
-						<button class="action-btn" aria-label="Share" onclick={() => handleShare(short)}>
+						<button class="action-btn" aria-label={m.page_shorts_share_alt()} onclick={() => handleShare(short)}>
 							{#if short.copied}
 								<Icon icon="check" />
 							{:else}
@@ -414,11 +415,15 @@
 				{#if activePanel.feedId === short.feedId && activePanel.type}
 					<div class="side-panel">
 						<div class="panel-header">
-							<h4>{activePanel.type === "info" ? "Information" : "Comments"}</h4>
+							<h4>
+								{activePanel.type === "info"
+									? m.page_shorts_panel_information()
+									: m.page_shorts_panel_comments()}
+							</h4>
 							<button
 								class="close-panel-btn"
 								onclick={() => togglePanel(short.feedId, null)}
-								aria-label="Close">
+								aria-label={m.page_shorts_close_alt()}
 								<Icon icon="close" />
 							</button>
 						</div>
@@ -426,36 +431,36 @@
 							{#if activePanel.type === "info"}
 								<div class="info-content">
 									<p>
-										<strong>Title:</strong>
+										<strong>{m.page_shorts_info_title_label()}</strong>
 										{short.title}
 									</p>
 									<p>
-										<strong>Creator:</strong>
+										<strong>{m.page_shorts_info_creator_label()}</strong>
 										@{short.creator}
 									</p>
 									<p>
-										<strong>Video ID:</strong>
+										<strong>{m.page_shorts_info_video_id_label()}</strong>
 										<span style="font-size: 0.8em; opacity: 0.7;">{short.id}</span>
 									</p>
 									<hr class="panel-divider" />
 									<p class="score-highlight">
-										<strong>Algorithm Score:</strong>
-										{calculateScore(short)} pts
+										<strong>{m.page_shorts_info_score_label()}</strong>
+										{calculateScore(short)} {m.page_shorts_info_score_unit()}
 									</p>
 									<p>
-										<strong>Views:</strong>
+										<strong>{m.page_shorts_info_views_label()}</strong>
 										{short.views.toLocaleString()}
 									</p>
 									<p>
-										<strong>Likes:</strong>
+										<strong>{m.page_shorts_info_likes_label()}</strong>
 										{short.likesCount}
 									</p>
 									<p>
-										<strong>Watch Duration:</strong>
+										<strong>{m.page_shorts_info_watch_duration_label()}</strong>
 										{short.watchDuration}s
 									</p>
 									<p>
-										<strong>Video Length:</strong>
+										<strong>{m.page_shorts_info_video_length_label()}</strong>
 										{short.videoLength}s
 									</p>
 								</div>

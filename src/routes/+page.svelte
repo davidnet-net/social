@@ -5,6 +5,7 @@
 	import { page } from "$app/state";
 	import HorizontalCard from "$lib/components/HorizontalCard/HorizontalCard.svelte";
 	import { PUBLIC_ACCOUNT_FRONTEND_URL } from "$env/static/public";
+	import * as m from "$lib/paraglide/messages.js";
 
 	$effect(() => {
 		(async () => {
@@ -19,15 +20,19 @@
 <Flex alignItems="center" marginTop="giant" direction="column">
 	<Flex width="90%" marginTop="giant" direction="column" gap="small">
 		<Flex justifyContent="spaceBetween" height="fit-content">
-			<h2>Davidnet Social:</h2>
+			<h2>{m.page_home_heading()}</h2>
 		</Flex>
 		<Flex gap="medium" height="fit-content" marginBottom="giant" flexWrap="wrap">
 			<HorizontalCard
-				title="Connections"
+				title={m.page_home_card_connections_title()}
 				description=""
 				icon="emoji_people"
 				href={PUBLIC_ACCOUNT_FRONTEND_URL + "/profile/connections"} />
-			<HorizontalCard title="Shorts" description="" icon="video_template" href="/shorts/1" />
+			<HorizontalCard
+				title={m.page_home_card_shorts_title()}
+				description=""
+				icon="video_template"
+				href="/shorts/1" />
 		</Flex>
 	</Flex>
 </Flex>
